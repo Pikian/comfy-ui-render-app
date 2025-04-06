@@ -1,0 +1,415 @@
+{
+  "37": {
+    "inputs": {
+      "MODEL": [
+        "46",
+        0
+      ]
+    },
+    "class_type": "Anything Everywhere",
+    "_meta": {
+      "title": "Anything Everywhere"
+    }
+  },
+  "38": {
+    "inputs": {
+      "CLIP": [
+        "46",
+        1
+      ]
+    },
+    "class_type": "Anything Everywhere",
+    "_meta": {
+      "title": "Anything Everywhere"
+    }
+  },
+  "39": {
+    "inputs": {
+      "VAE": [
+        "42",
+        2
+      ]
+    },
+    "class_type": "Anything Everywhere",
+    "_meta": {
+      "title": "Anything Everywhere"
+    }
+  },
+  "42": {
+    "inputs": {
+      "ckpt_name": "flux1-dev-fp8.safetensors"
+    },
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": {
+      "title": "Load Checkpoint"
+    }
+  },
+  "46": {
+    "inputs": {
+      "lora_01": "UltraRealPhoto.safetensors",
+      "strength_01": 0,
+      "lora_02": "None",
+      "strength_02": 0,
+      "lora_03": "None",
+      "strength_03": 0,
+      "lora_04": "None",
+      "strength_04": 0,
+      "model": [
+        "42",
+        0
+      ],
+      "clip": [
+        "42",
+        1
+      ]
+    },
+    "class_type": "Lora Loader Stack (rgthree)",
+    "_meta": {
+      "title": "Lora Loader Stack (rgthree)"
+    }
+  },
+  "49": {
+    "inputs": {
+      "control_net_name": "FLUX.1\\InstantX-FLUX1-Dev-Union\\diffusion_pytorch_model.safetensors"
+    },
+    "class_type": "ControlNetLoader",
+    "_meta": {
+      "title": "Load ControlNet Model"
+    }
+  },
+  "53": {
+    "inputs": {
+      "CONTROL_NET": [
+        "49",
+        0
+      ]
+    },
+    "class_type": "Anything Everywhere",
+    "_meta": {
+      "title": "Anything Everywhere"
+    }
+  },
+  "64": {
+    "inputs": {
+      "model_name": "4xNomosUniDAT_otf.pth"
+    },
+    "class_type": "UpscaleModelLoader",
+    "_meta": {
+      "title": "Load Upscale Model"
+    }
+  },
+  "69": {
+    "inputs": {
+      "positive": [
+        "159",
+        0
+      ],
+      "negative": [
+        "116",
+        0
+      ]
+    },
+    "class_type": "CondPassThrough",
+    "_meta": {
+      "title": "CondPassThrough"
+    }
+  },
+  "70": {
+    "inputs": {
+      "UPSCALE_MODEL": [
+        "64",
+        0
+      ]
+    },
+    "class_type": "Anything Everywhere",
+    "_meta": {
+      "title": "Anything Everywhere"
+    }
+  },
+  "84": {
+    "inputs": {
+      "max_shift": 1.15,
+      "base_shift": 0.5,
+      "width": 1024,
+      "height": 1024,
+      "model": [
+        "46",
+        0
+      ]
+    },
+    "class_type": "ModelSamplingFlux",
+    "_meta": {
+      "title": "ModelSamplingFlux"
+    }
+  },
+  "85": {
+    "inputs": {
+      "sampler_name": "heun"
+    },
+    "class_type": "KSamplerSelect",
+    "_meta": {
+      "title": "KSamplerSelect"
+    }
+  },
+  "86": {
+    "inputs": {
+      "scheduler": "beta",
+      "steps": 20,
+      "denoise": 1,
+      "model": [
+        "84",
+        0
+      ]
+    },
+    "class_type": "BasicScheduler",
+    "_meta": {
+      "title": "BasicScheduler"
+    }
+  },
+  "88": {
+    "inputs": {
+      "detail_amount": 0.05,
+      "start": 0.3,
+      "end": 0.8,
+      "bias": 0.5,
+      "exponent": 1,
+      "start_offset": 0,
+      "end_offset": 0,
+      "fade": 0.05,
+      "smooth": true,
+      "cfg_scale_override": 0,
+      "sampler": [
+        "85",
+        0
+      ]
+    },
+    "class_type": "DetailDaemonSamplerNode",
+    "_meta": {
+      "title": "Detail Daemon Sampler"
+    }
+  },
+  "89": {
+    "inputs": {
+      "noise": [
+        "99",
+        0
+      ],
+      "guider": [
+        "90",
+        0
+      ],
+      "sampler": [
+        "85",
+        0
+      ],
+      "sigmas": [
+        "86",
+        0
+      ],
+      "latent_image": [
+        "97",
+        0
+      ]
+    },
+    "class_type": "SamplerCustomAdvanced",
+    "_meta": {
+      "title": "SamplerCustomAdvanced"
+    }
+  },
+  "90": {
+    "inputs": {
+      "cfg": 1,
+      "positive": [
+        "69",
+        0
+      ],
+      "negative": [
+        "69",
+        1
+      ],
+      "model": [
+        "46",
+        0
+      ]
+    },
+    "class_type": "CFGGuider",
+    "_meta": {
+      "title": "CFGGuider"
+    }
+  },
+  "97": {
+    "inputs": {
+      "width": 1024,
+      "height": 1024,
+      "batch_size": 1
+    },
+    "class_type": "EmptySD3LatentImage",
+    "_meta": {
+      "title": "EmptySD3LatentImage"
+    }
+  },
+  "98": {
+    "inputs": {
+      "samples": [
+        "89",
+        1
+      ],
+      "vae": [
+        "42",
+        2
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "99": {
+    "inputs": {
+      "noise_seed": 987654321
+    },
+    "class_type": "RandomNoise",
+    "_meta": {
+      "title": "RandomNoise"
+    }
+  },
+  "108": {
+    "inputs": {
+      "text": "A breathtaking fantasy landscape at golden hour. A massive ancient tree city built into towering crystalline cliffs, with magical floating islands connected by ethereal bridges of light. Waterfalls of glowing blue energy cascade down the cliff faces. The architecture blends organic and geometric forms, with spiraling towers adorned with luminescent vines. In the foreground, a serene lake reflects the warm sunset sky, dotted with floating lanterns. Flying creatures soar between the floating islands, leaving trails of sparkles in their wake. The scene is rendered in a hyper-detailed, cinematic style with dramatic lighting and atmospheric perspective.",
+      "clip": [
+        "46",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt)"
+    }
+  },
+  "112": {
+    "inputs": {
+      "radius": 10,
+      "intensity": 0.4,
+      "image": [
+        "122",
+        0
+      ]
+    },
+    "class_type": "Image Bloom Filter",
+    "_meta": {
+      "title": "Image Bloom Filter"
+    }
+  },
+  "113": {
+    "inputs": {
+      "scale": 0.5,
+      "strength": 0.2,
+      "saturation": 0.4,
+      "toe": 0,
+      "seed": 862307120785424,
+      "image": [
+        "112",
+        0
+      ]
+    },
+    "class_type": "BetterFilmGrain",
+    "_meta": {
+      "title": "Better Film Grain"
+    }
+  },
+  "114": {
+    "inputs": {
+      "crf": 8,
+      "image": [
+        "113",
+        0
+      ]
+    },
+    "class_type": "Image H264 Compression (mtb)",
+    "_meta": {
+      "title": "Image H264 Compression (mtb)"
+    }
+  },
+  "116": {
+    "inputs": {
+      "text": "the image is ugly and plastic, ",
+      "clip": [
+        "46",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt)"
+    }
+  },
+  "122": {
+    "inputs": {
+      "iterations": 2,
+      "kernel_size": 3,
+      "images": [
+        "129",
+        0
+      ]
+    },
+    "class_type": "Image Lucy Sharpen",
+    "_meta": {
+      "title": "Image Lucy Sharpen"
+    }
+  },
+  "129": {
+    "inputs": {
+      "red_offset": 0,
+      "green_offset": 0,
+      "blue_offset": 2,
+      "intensity": 0.4,
+      "fade_radius": 20,
+      "image": [
+        "98",
+        0
+      ]
+    },
+    "class_type": "Image Chromatic Aberration",
+    "_meta": {
+      "title": "Image Chromatic Aberration"
+    }
+  },
+  "143": {
+    "inputs": {
+      "filename_prefix": "FluxBasic/FluxBasic",
+      "images": [
+        "98",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Save Image"
+    }
+  },
+  "145": {
+    "inputs": {
+      "images": [
+        "98",
+        0
+      ]
+    },
+    "class_type": "PreviewImage",
+    "_meta": {
+      "title": "Preview Image"
+    }
+  },
+  "159": {
+    "inputs": {
+      "guidance": 2.2,
+      "conditioning": [
+        "108",
+        0
+      ]
+    },
+    "class_type": "FluxGuidance",
+    "_meta": {
+      "title": "FluxGuidance"
+    }
+  }
+}
