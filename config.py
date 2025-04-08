@@ -1,33 +1,53 @@
 import os
-from pathlib import Path
+from dotenv import load_dotenv, find_dotenv
+
+# Force reload of environment variables
+load_dotenv(find_dotenv(), override=True)
 
 class Config:
-    # Base configuration
-    BASE_DIR = Path(__file__).resolve().parent
-    OUTPUT_DIR = BASE_DIR / "output"
+    # RunPod Configuration
+    RUNPOD_API_KEY = os.getenv("RUNPOD_API_KEY")
+    RUNPOD_ENDPOINT_ID = os.getenv("RUNPOD_ENDPOINT_ID")
+    RUNPOD_API_URL = f"https://api.runpod.ai/v2/{RUNPOD_ENDPOINT_ID}"
+    RUNPOD_TIMEOUT = int(os.getenv("RUNPOD_TIMEOUT", "300"))
+    STATUS_CHECK_INTERVAL = int(os.getenv("STATUS_CHECK_INTERVAL", "5"))
     
-    # ComfyUI configuration
-    COMFYUI_HOST = os.getenv("COMFYUI_HOST", "127.0.0.1")
-    COMFYUI_PORT = int(os.getenv("COMFYUI_PORT", "8000"))
-    COMFYUI_WS_URL = f"ws://{COMFYUI_HOST}:{COMFYUI_PORT}/ws"
-    COMFYUI_API_URL = f"http://{COMFYUI_HOST}:{COMFYUI_PORT}"
+    # RunPod Headers
+    RUNPOD_HEADERS = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {RUNPOD_API_KEY}"
+    }
     
-    # Server configuration
+    # Supabase Configuration
+    SUPABASE_URL = os.getenv("SUPABASE_URL")
+    SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+    SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+    
+    # Server Configuration
     HOST = os.getenv("HOST", "0.0.0.0")
     PORT = int(os.getenv("PORT", "8001"))
     
-    # Supabase configuration
-    SUPABASE_URL = os.getenv("SUPABASE_URL", "")
-    SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
-    
-    # Logging configuration
+    # Logging Configuration
     LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
     
     @classmethod
     def validate(cls):
-        """Validate required configuration"""
-        if not cls.SUPABASE_URL or not cls.SUPABASE_KEY:
-            raise ValueError("Supabase credentials are required")
+        """Validate required configuration values."""
+        required_vars = [
+            ("RUNPOD_API_KEY", cls.RUNPOD_API_KEY),
+            ("RUNPOD_ENDPOINT_ID", cls.RUNPOD_ENDPOINT_ID),
+            ("SUPABASE_URL", cls.SUPABASE_URL),
+            ("SUPABASE_KEY", cls.SUPABASE_KEY),
+        ]
         
-        # Create output directory if it doesn't exist
-        cls.OUTPUT_DIR.mkdir(exist_ok=True) 
+        missing_vars = [var_name for var_name, var_value in required_vars if not var_value]
+        
+        if missing_vars:
+            raise ValueError(f"Missing required environment variables: {', '.join(missing_vars)}")
+            
+    @classmethod
+    def reload(cls):
+        """Reload environment variables."""
+        load_dotenv(find_dotenv(), override=True)
+        cls.RUNPOD_API_KEY = os.getenv("RUNPOD_API_KEY")
+        cls.RUNPOD_HEADERS["Authorization"] = f"Bearer {cls.RUNPOD_API_KEY}" 

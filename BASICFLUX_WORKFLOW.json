@@ -1,0 +1,107 @@
+{
+  "42": {
+    "inputs": {
+      "ckpt_name": "v1-5-pruned.ckpt"
+    },
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": {
+      "title": "Load Checkpoint"
+    }
+  },
+  "85": {
+    "inputs": {
+      "seed": 179063470762685,
+      "steps": 20,
+      "cfg": 7,
+      "sampler_name": "euler",
+      "scheduler": "normal",
+      "denoise": 1,
+      "model": [
+        "42",
+        0
+      ],
+      "positive": [
+        "108",
+        0
+      ],
+      "negative": [
+        "116",
+        0
+      ],
+      "latent_image": [
+        "97",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "KSampler"
+    }
+  },
+  "97": {
+    "inputs": {
+      "width": 1280,
+      "height": 1280,
+      "batch_size": 1
+    },
+    "class_type": "EmptyLatentImage",
+    "_meta": {
+      "title": "Empty Latent Image"
+    }
+  },
+  "98": {
+    "inputs": {
+      "samples": [
+        "85",
+        0
+      ],
+      "vae": [
+        "42",
+        2
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "108": {
+    "inputs": {
+      "text": "A cinematic, ultra-detailed studio portrait of a rugged, charismatic middle-aged man. He has tousled, shoulder-length brown hair with subtle waves, a sharp, angular jawline, strong cheekbones, and a well-groomed mustache and goatee. His expression is intense and serious, with slightly furrowed brows and piercing hazel eyes staring directly into the camera. He wears a richly embroidered cream satin blazer with intricate butterfly and floral patterns in earthy and jewel tones. Underneath, he has a partially unbuttoned white shirt and a thin gold chain around his neck. The background is a dark, moody studio backdrop, softly blurred. Lighting is dramatic and cinematic, with subtle highlights on his cheekbones and nose, emphasizing skin texture and depth. The image is hyper-realistic, sharp, and evokes the feel of a fashion editorial or vintage album cover with warm, filmic tones.",
+      "clip": [
+        "42",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt)"
+    }
+  },
+  "116": {
+    "inputs": {
+      "text": "the image is ugly and plastic, blurry, low quality, distorted features",
+      "clip": [
+        "42",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt)"
+    }
+  },
+  "144": {
+    "inputs": {
+      "filename_prefix": "FluxBasic/FluxBasic",
+      "images": [
+        "98",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Save Image"
+    }
+  }
+}

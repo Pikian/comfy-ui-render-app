@@ -1,0 +1,31 @@
+Hi media Team,
+
+We're developing a social media content generation platform using Next.js, integrating ComfyUI for flexible AI image creation. Our architecture involves a main Next.js application and a separate Python (FastAPI) executor service that interacts with the ComfyUI WebSocket API.
+
+A key aspect of our approach is storing base ComfyUI workflow JSONs (often including client-specific LoRAs) in our database. When a content request is made:
+
+1.  The Next.js backend fetches the appropriate base workflow JSON.
+2.  It generates a detailed text prompt based on user input and other factors.
+3.  It programmatically modifies the fetched workflow JSON:
+    *   Injecting the generated prompt text into the relevant node(s) (e.g., CLIPTextEncode).
+    *   Adjusting image dimensions (e.g., in EmptyLatentImage nodes) based on the target format (e.g., 9:16 for stories, 1:1 for posts).
+    *   It also creates an initial record in our database for this request (e.g., status 'processing').
+4.  This fully modified, ready-to-run workflow JSON, along with the unique ID for the database record (`contentRequestId`), is sent via a secure **POST request** to the Python executor service endpoint (e.g., `/execute-workflow`).
+    *   **Request Format:** The request includes an API key (e.g., in the `X-API-Key` header) for authentication and a JSON body like: `{"workflow_json": { ...modified workflow... }, "content_request_id": "unique-id-123"}`.
+
+The executor service's role is simple:
+*   Receive the POST request, authenticate it using the API key.
+*   Execute the provided workflow JSON via the ComfyUI WebSocket API.
+*   **(Optional Status Update):** It could potentially send intermediate status updates back to a dedicated Next.js endpoint if needed, though our current plan focuses on a final callback.
+*   Once ComfyUI finishes, retrieve the output image file.
+*   Upload the resulting image to cloud storage (Supabase).
+*   Send a **callback POST request** to a dedicated endpoint in the Next.js app (e.g., `/api/comfy-callback`).
+    *   **Callback Format:** This request is also authenticated (e.g., API key) and includes a JSON body indicating completion status and the image URL (or error details): `{"content_request_id": "unique-id-123", "status": "success" or "error", "image_url": "...supabase_url...", "error_message": null or "...details..."}`.
+The Next.js callback endpoint then updates the original database record with the final status and image URL.
+
+This allows us to dynamically control prompts and output dimensions per request while leveraging complex, client-specific workflows (handling visual style and LoRAs) managed within ComfyUI. Text generation (captions, etc.) using a separate client 'voice context' is handled externally by our Next.js backend after the image is generated.
+
+We appreciate the power and flexibility ComfyUI provides!
+
+Thanks,
+Front end team
