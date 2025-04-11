@@ -1,88 +1,4 @@
 {
-  "1": {
-    "inputs": {
-      "ckpt_name": "flux1-dev-fp8.safetensors"
-    },
-    "class_type": "CheckpointLoaderSimple"
-  },
-  "2": {
-    "inputs": {
-      "text": "A beautiful landscape with mountains and a lake",
-      "clip": [
-        "1",
-        1
-      ]
-    },
-    "class_type": "CLIPTextEncode"
-  },
-  "3": {
-    "inputs": {
-      "text": "ugly, blurry, low quality",
-      "clip": [
-        "1",
-        1
-      ]
-    },
-    "class_type": "CLIPTextEncode"
-  },
-  "4": {
-    "inputs": {
-      "width": 512,
-      "height": 512,
-      "batch_size": 1
-    },
-    "class_type": "EmptyLatent"
-  },
-  "5": {
-    "inputs": {
-      "model": [
-        "1",
-        0
-      ],
-      "positive": [
-        "2",
-        0
-      ],
-      "negative": [
-        "3",
-        0
-      ],
-      "latent": [
-        "4",
-        0
-      ],
-      "seed": 123456789,
-      "steps": 20,
-      "cfg": 7.5,
-      "sampler_name": "euler",
-      "scheduler": "normal",
-      "denoise": 1
-    },
-    "class_type": "KSampler"
-  },
-  "6": {
-    "inputs": {
-      "samples": [
-        "5",
-        0
-      ],
-      "vae": [
-        "1",
-        2
-      ]
-    },
-    "class_type": "VAEDecode"
-  },
-  "7": {
-    "inputs": {
-      "filename_prefix": "ComfyUI_",
-      "images": [
-        "6",
-        0
-      ]
-    },
-    "class_type": "SaveImage"
-  },
   "37": {
     "inputs": {
       "MODEL": [
@@ -90,7 +6,10 @@
         0
       ]
     },
-    "class_type": "Anything Everywhere"
+    "class_type": "Anything Everywhere",
+    "_meta": {
+      "title": "Anything Everywhere"
+    }
   },
   "38": {
     "inputs": {
@@ -99,7 +18,10 @@
         1
       ]
     },
-    "class_type": "Anything Everywhere"
+    "class_type": "Anything Everywhere",
+    "_meta": {
+      "title": "Anything Everywhere"
+    }
   },
   "39": {
     "inputs": {
@@ -108,18 +30,24 @@
         2
       ]
     },
-    "class_type": "Anything Everywhere"
+    "class_type": "Anything Everywhere",
+    "_meta": {
+      "title": "Anything Everywhere"
+    }
   },
   "42": {
     "inputs": {
       "ckpt_name": "flux1-dev-fp8.safetensors"
     },
-    "class_type": "CheckpointLoaderSimple"
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": {
+      "title": "Load Checkpoint"
+    }
   },
   "46": {
     "inputs": {
       "lora_01": "UltraRealPhoto.safetensors",
-      "strength_01": 0.5,
+      "strength_01": 0,
       "lora_02": "None",
       "strength_02": 0,
       "lora_03": "None",
@@ -135,7 +63,10 @@
         1
       ]
     },
-    "class_type": "Lora Loader Stack (rgthree)"
+    "class_type": "Lora Loader Stack (rgthree)",
+    "_meta": {
+      "title": "Lora Loader Stack (rgthree)"
+    }
   },
   "49": {
     "inputs": {
@@ -206,13 +137,19 @@
         0
       ]
     },
-    "class_type": "ModelSamplingFlux"
+    "class_type": "ModelSamplingFlux",
+    "_meta": {
+      "title": "ModelSamplingFlux"
+    }
   },
   "85": {
     "inputs": {
       "sampler_name": "heun"
     },
-    "class_type": "KSamplerSelect"
+    "class_type": "KSamplerSelect",
+    "_meta": {
+      "title": "KSamplerSelect"
+    }
   },
   "86": {
     "inputs": {
@@ -224,7 +161,10 @@
         0
       ]
     },
-    "class_type": "BasicScheduler"
+    "class_type": "BasicScheduler",
+    "_meta": {
+      "title": "BasicScheduler"
+    }
   },
   "88": {
     "inputs": {
@@ -271,25 +211,31 @@
         0
       ]
     },
-    "class_type": "SamplerCustomAdvanced"
+    "class_type": "SamplerCustomAdvanced",
+    "_meta": {
+      "title": "SamplerCustomAdvanced"
+    }
   },
   "90": {
     "inputs": {
-      "cfg": 7.5,
+      "cfg": 1,
       "positive": [
-        "108",
+        "69",
         0
       ],
       "negative": [
-        "116",
-        0
+        "69",
+        1
       ],
       "model": [
         "46",
         0
       ]
     },
-    "class_type": "CFGGuider"
+    "class_type": "CFGGuider",
+    "_meta": {
+      "title": "CFGGuider"
+    }
   },
   "97": {
     "inputs": {
@@ -297,7 +243,10 @@
       "height": 1024,
       "batch_size": 1
     },
-    "class_type": "EmptySD3LatentImage"
+    "class_type": "EmptySD3LatentImage",
+    "_meta": {
+      "title": "EmptySD3LatentImage"
+    }
   },
   "98": {
     "inputs": {
@@ -310,13 +259,19 @@
         2
       ]
     },
-    "class_type": "VAEDecode"
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode"
+    }
   },
   "99": {
     "inputs": {
       "noise_seed": 987654321
     },
-    "class_type": "RandomNoise"
+    "class_type": "RandomNoise",
+    "_meta": {
+      "title": "RandomNoise"
+    }
   },
   "108": {
     "inputs": {
@@ -326,7 +281,10 @@
         1
       ]
     },
-    "class_type": "CLIPTextEncode"
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt)"
+    }
   },
   "112": {
     "inputs": {
@@ -374,13 +332,16 @@
   },
   "116": {
     "inputs": {
-      "text": "ugly, blurry, low quality, distorted, deformed",
+      "text": "the image is ugly and plastic, ",
       "clip": [
         "46",
         1
       ]
     },
-    "class_type": "CLIPTextEncode"
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt)"
+    }
   },
   "122": {
     "inputs": {
@@ -415,13 +376,16 @@
   },
   "143": {
     "inputs": {
-      "filename_prefix": "ComfyUI_temp_",
+      "filename_prefix": "FluxBasic/FluxBasic",
       "images": [
         "98",
         0
       ]
     },
-    "class_type": "SaveImage"
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Save Image"
+    }
   },
   "145": {
     "inputs": {

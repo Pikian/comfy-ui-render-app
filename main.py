@@ -1,226 +1,184 @@
-import asyncio
+import os
+import json
 import httpx
+import asyncio
+import websockets
 import logging
-from fastapi import FastAPI, HTTPException, WebSocket
+from pathlib import Path
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import Dict, Any, Optional
-from config import Config
-import json
 from supabase import create_client, Client
 import uuid
-import time
-import base64
-from io import BytesIO
-from PIL import Image
+from config import Config
 
-# Configure logging with more detailed format
+# Configure logging
 logging.basicConfig(
     level=Config.LOG_LEVEL,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
 
-# Log configuration at startup
-logger.debug("Configuration loaded:")
-logger.debug(f"RunPod API URL: {Config.RUNPOD_API_URL}")
-logger.debug(f"RunPod Endpoint ID: {Config.RUNPOD_ENDPOINT_ID}")
-logger.debug(f"Supabase URL: {Config.SUPABASE_URL}")
-logger.debug(f"Server Host: {Config.HOST}")
-logger.debug(f"Server Port: {Config.PORT}")
+# Initialize Supabase client
+supabase: Client = create_client(Config.SUPABASE_URL, Config.SUPABASE_SERVICE_ROLE_KEY)
 
-# Initialize FastAPI app
 app = FastAPI()
 
-# Add CORS middleware
+# Enable CORS for development
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:3000"],  # Allow Next.js frontend
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Initialize Supabase client
-try:
-    supabase: Client = create_client(Config.SUPABASE_URL, Config.SUPABASE_KEY)
-    logger.info("Supabase client initialized successfully")
-except Exception as e:
-    logger.error(f"Failed to initialize Supabase client: {str(e)}")
-    raise
+@app.get("/health")
+async def health_check():
+    """Health check endpoint"""
+    return {"status": "healthy"}
 
 class WorkflowRequest(BaseModel):
-    workflow: Dict[str, Any]
+    workflow: dict
     content_request_id: str
-    user_id: Optional[str] = "default_user"
 
-async def check_job_status(job_id: str) -> Dict[str, Any]:
-    """Check the status of a RunPod job."""
-    logger.debug(f"Checking status for job {job_id}")
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{Config.RUNPOD_API_URL}/status/{job_id}",
-                headers=Config.RUNPOD_HEADERS
-            )
-            status_data = response.json()
-            logger.debug(f"Job {job_id} status: {status_data}")
-            return status_data
-    except Exception as e:
-        logger.error(f"Error checking job status: {str(e)}")
-        raise
+class WorkflowExecutor:
+    def __init__(self):
+        self.output_dir = Config.OUTPUT_DIR
+        
+    async def execute_workflow(self, workflow_json: dict, content_request_id: str) -> dict:
+        """Execute a workflow and return the result."""
+        try:
+            # Queue the workflow
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"{Config.COMFYUI_API_URL}/prompt",
+                    json={"prompt": workflow_json}
+                )
+                response.raise_for_status()
+                prompt_id = response.json()["prompt_id"]
+                logger.info(f"Workflow queued with ID: {prompt_id}")
 
-async def process_image_data(image_data: str) -> bytes:
-    """Process base64 image data from RunPod."""
-    try:
-        logger.debug("Processing image data")
-        # Remove the data URL prefix if present
-        if image_data.startswith('data:image/'):
-            logger.debug("Removing data URL prefix")
-            image_data = image_data.split(',')[1]
-        
-        # Decode base64 data
-        logger.debug("Decoding base64 data")
-        image_bytes = base64.b64decode(image_data)
-        
-        # Convert to PNG if needed
-        logger.debug("Opening image with PIL")
-        image = Image.open(BytesIO(image_bytes))
-        if image.format != 'PNG':
-            logger.debug(f"Converting image from {image.format} to PNG")
-            output = BytesIO()
-            image.save(output, format='PNG')
-            image_bytes = output.getvalue()
-        
-        logger.debug(f"Image processed successfully, size: {len(image_bytes)} bytes")
-        return image_bytes
-    except Exception as e:
-        logger.error(f"Error processing image data: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to process image data: {str(e)}")
+            # Wait for completion
+            execution_completed = False
+            max_retries = 3
+            retry_count = 0
 
-async def upload_to_supabase(image_data: bytes, user_id: str, content_request_id: str) -> str:
-    """Upload image to Supabase storage."""
-    try:
-        # Create structured path
-        path = f"{user_id}/{content_request_id}/image.png"
-        logger.debug(f"Uploading image to Supabase path: {path}")
-        
-        # Upload to Supabase
-        supabase.storage.from_("images").upload(
-            path=path,
-            file=image_data,
-            file_options={"content-type": "image/png"}
-        )
-        logger.debug("Image uploaded successfully")
-        
-        # Get public URL
-        url = supabase.storage.from_("images").get_public_url(path)
-        logger.debug(f"Image public URL: {url}")
-        return url
-    except Exception as e:
-        logger.error(f"Supabase upload error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to upload image: {str(e)}")
+            while retry_count < max_retries and not execution_completed:
+                try:
+                    async with websockets.connect(Config.COMFYUI_WS_URL) as websocket:
+                        await websocket.send(json.dumps({"prompt_id": prompt_id}))
+                        
+                        while True:
+                            message = await websocket.recv()
+                            data = json.loads(message)
+                            
+                            if data["type"] == "status":
+                                # Check if the queue is empty and our prompt is done
+                                if "data" in data and "status" in data["data"]:
+                                    status = data["data"]["status"]
+                                    if "exec_info" in status:
+                                        queue_remaining = status["exec_info"].get("queue_remaining", 1)
+                                        if queue_remaining == 0:
+                                            execution_completed = True
+                                            break
+                            
+                            elif data["type"] == "error":
+                                error = data["data"]["error"]
+                                raise Exception(f"Workflow execution failed: {error}")
+                                
+                except (websockets.exceptions.ConnectionClosedError, ConnectionRefusedError) as e:
+                    retry_count += 1
+                    if retry_count < max_retries:
+                        logger.warning(f"Connection error (attempt {retry_count}/{max_retries}): {e}")
+                        await asyncio.sleep(2)
+                    else:
+                        raise Exception(f"Failed to connect to ComfyUI after {max_retries} attempts: {e}")
+
+            if not execution_completed:
+                raise Exception("Workflow execution did not complete successfully")
+
+            # Get the generated image
+            async with httpx.AsyncClient() as client:
+                # Get history to find the image
+                history_response = await client.get(f"{Config.COMFYUI_API_URL}/history")
+                history_response.raise_for_status()
+                history = history_response.json()
+                
+                if prompt_id not in history:
+                    raise Exception("Workflow not found in history")
+                
+                # Find the SaveImage node's output
+                output_images = history[prompt_id]["outputs"]
+                for node_id, node_output in output_images.items():
+                    if "images" in node_output:
+                        for image_info in node_output["images"]:
+                            # Download the image from ComfyUI
+                            image_url = f"{Config.COMFYUI_API_URL}/view?filename={image_info['filename']}&subfolder={image_info['subfolder']}&type={image_info['type']}"
+                            image_response = await client.get(image_url)
+                            image_response.raise_for_status()
+                            image_data = image_response.content
+                            
+                            # Generate UUID for the image
+                            image_uuid = str(uuid.uuid4())
+                            
+                            # Create the proper path structure
+                            supabase_path = f"comfyui-output/{content_request_id}/{image_uuid}.png"
+                            
+                            # Save to local folder first
+                            local_path = self.output_dir / f"{content_request_id}_{image_uuid}.png"
+                            with open(local_path, "wb") as f:
+                                f.write(image_data)
+                            
+                            # Upload to Supabase with the new path structure
+                            try:
+                                with open(local_path, "rb") as f:
+                                    response = supabase.storage.from_("media").upload(
+                                        supabase_path,
+                                        f.read(),
+                                        {"content-type": "image/png"}
+                                    )
+                                
+                                # Get the public URL
+                                image_url = supabase.storage.from_("media").get_public_url(supabase_path)
+                                logger.info(f"Image uploaded successfully: {image_url}")
+                                
+                                # Clean up local file
+                                local_path.unlink()
+                                
+                                return {
+                                    "status": "completed",
+                                    "image_url": image_url,
+                                    "content_request_id": content_request_id,
+                                    "image_uuid": image_uuid
+                                }
+                                
+                            except Exception as upload_error:
+                                logger.error(f"Failed to upload to Supabase: {upload_error}")
+                                raise Exception(f"Failed to upload image to Supabase: {upload_error}")
+                
+                raise Exception("No output images found in workflow history")
+                
+        except Exception as e:
+            logger.error(f"Error executing workflow: {e}")
+            return {
+                "status": "failed",
+                "error": str(e)
+            }
+
+executor = WorkflowExecutor()
 
 @app.post("/execute-workflow")
 async def execute_workflow(request: WorkflowRequest):
-    """Execute a workflow using RunPod's ComfyUI service."""
-    try:
-        logger.info(f"Received workflow execution request: {request.content_request_id}")
-        logger.debug(f"User ID: {request.user_id}")
-        logger.debug(f"Workflow: {json.dumps(request.workflow, indent=2)}")
-        
-        # Submit job to RunPod
-        async with httpx.AsyncClient() as client:
-            logger.debug("Submitting job to RunPod")
-            response = await client.post(
-                f"{Config.RUNPOD_API_URL}/run",
-                headers=Config.RUNPOD_HEADERS,
-                json={"input": {"workflow": request.workflow}},
-                timeout=Config.RUNPOD_TIMEOUT
-            )
-            
-            if response.status_code != 200:
-                error_msg = f"RunPod API error: {response.status_code} - {response.text}"
-                logger.error(error_msg)
-                raise HTTPException(status_code=response.status_code, detail=error_msg)
-            
-            job_data = response.json()
-            job_id = job_data["id"]
-            logger.info(f"Job submitted successfully. Job ID: {job_id}")
-            
-            # Poll for job completion
-            start_time = time.time()
-            while time.time() - start_time < Config.RUNPOD_TIMEOUT:
-                status = await check_job_status(job_id)
-                logger.debug(f"Job status: {status}")
-                
-                if status["status"] == "COMPLETED":
-                    logger.info(f"Job {job_id} completed successfully")
-                    # Get image data from RunPod output
-                    if "output" not in status or "image" not in status["output"]:
-                        error_msg = f"No image data in RunPod output: {status}"
-                        logger.error(error_msg)
-                        raise HTTPException(status_code=500, detail=error_msg)
-                    
-                    # Process and upload the image
-                    image_bytes = await process_image_data(status["output"]["image"])
-                    image_url = await upload_to_supabase(
-                        image_bytes,
-                        request.user_id,
-                        request.content_request_id
-                    )
-                    
-                    logger.info(f"Workflow execution completed successfully: {image_url}")
-                    return {
-                        "status": "success",
-                        "image_url": image_url,
-                        "content_request_id": request.content_request_id,
-                        "job_id": job_id
-                    }
-                
-                elif status["status"] == "FAILED":
-                    error_msg = f"Job {job_id} failed: {status.get('error', 'Unknown error')}"
-                    logger.error(error_msg)
-                    raise HTTPException(status_code=500, detail=error_msg)
-                
-                await asyncio.sleep(Config.STATUS_CHECK_INTERVAL)
-            
-            error_msg = f"Job {job_id} timed out after {Config.RUNPOD_TIMEOUT} seconds"
-            logger.error(error_msg)
-            raise HTTPException(status_code=408, detail=error_msg)
-            
-    except httpx.RequestError as e:
-        error_msg = f"RunPod API error: {str(e)}"
-        logger.error(error_msg)
-        raise HTTPException(status_code=500, detail=error_msg)
-    except Exception as e:
-        error_msg = f"Unexpected error: {str(e)}"
-        logger.error(error_msg)
-        raise HTTPException(status_code=500, detail=error_msg)
-
-@app.websocket("/ws/{content_request_id}")
-async def websocket_endpoint(websocket: WebSocket, content_request_id: str):
-    """WebSocket endpoint for real-time updates."""
-    logger.info(f"WebSocket connection requested for content_request_id: {content_request_id}")
-    await websocket.accept()
-    try:
-        while True:
-            # Check job status
-            status = await check_job_status(content_request_id)
-            await websocket.send_json(status)
-            logger.debug(f"Sent status update for {content_request_id}: {status}")
-            
-            if status["status"] in ["COMPLETED", "FAILED"]:
-                logger.info(f"WebSocket connection closing for {content_request_id}: {status['status']}")
-                break
-                
-            await asyncio.sleep(Config.STATUS_CHECK_INTERVAL)
-    except Exception as e:
-        logger.error(f"WebSocket error for {content_request_id}: {str(e)}")
-    finally:
-        await websocket.close()
+    logger.info("Received workflow execution request")
+    logger.info(f"Starting workflow execution for content_request_id: {request.content_request_id}")
+    result = await executor.execute_workflow(request.workflow, request.content_request_id)
+    logger.info(f"Workflow execution completed for content_request_id: {request.content_request_id}")
+    return result
 
 if __name__ == "__main__":
     import uvicorn
+    # Validate configuration
+    Config.validate()
     logger.info("Starting FastAPI server...")
     uvicorn.run(app, host=Config.HOST, port=Config.PORT) 
