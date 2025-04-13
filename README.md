@@ -4,9 +4,10 @@ A FastAPI middleware application that connects ComfyUI with frontend application
 
 ## Features
 
-- Execute ComfyUI workflows
+- Execute ComfyUI workflows asynchronously
 - Monitor workflow progress via WebSocket
-- Upload generated images to Supabase
+- Upload generated images to Supabase Storage
+- Update Supabase database (`content_requests` table) with status (`ready`/`cancelled`) and image URL
 - Public access via ngrok
 - Health check endpoint
 - Environment-based configuration
@@ -14,8 +15,12 @@ A FastAPI middleware application that connects ComfyUI with frontend application
 ## Prerequisites
 
 - Python 3.8+
-- ComfyUI running on port 8000
-- Supabase account with service role key
+- ComfyUI running (default port 8188)
+- Supabase account with:
+    - A project setup
+    - A `content_requests` table with `id` (UUID), `status` (TEXT), and `assets` (JSONB) columns.
+    - A `media` storage bucket.
+    - Your Supabase URL and Service Role Key.
 - ngrok account (for public access)
 
 ## Installation
@@ -53,15 +58,11 @@ A FastAPI middleware application that connects ComfyUI with frontend application
 
    # ComfyUI Configuration
    COMFYUI_HOST=127.0.0.1
-   COMFYUI_PORT=8000
+   COMFYUI_PORT=8188 # Default ComfyUI port
 
    # Server Configuration
    HOST=0.0.0.0
    PORT=8001
-
-   # Next.js Callback Configuration
-   NEXTJS_CALLBACK_URL=http://localhost:3000/api/comfy-callback
-   NEXTJS_API_KEY=your_nextjs_api_key
 
    # ngrok Configuration (optional)
    NGROK_AUTH_TOKEN=your_ngrok_authtoken
@@ -76,10 +77,12 @@ Double-click `start.bat` and choose:
 
 ### Manual Start
 ```bash
-# Start locally
-uvicorn main:app --host 0.0.0.0 --port 8001
+# Make sure venv is activated
 
-# Start with ngrok
+# Start locally (with auto-reload for development)
+uvicorn main:app --host 0.0.0.0 --port 8001 --reload
+
+# Start with ngrok (runs the server via uvicorn internally)
 python start_with_ngrok.py
 ```
 
@@ -97,6 +100,8 @@ Response:
 ```
 
 ### Execute Workflow
+Initiates the workflow execution in the background.
+
 ```http
 POST /execute-workflow
 Content-Type: application/json
@@ -105,34 +110,44 @@ Content-Type: application/json
   "workflow": {
     // ComfyUI workflow JSON
   },
-  "content_request_id": "your_unique_id"
+  "content_request_id": "your_unique_content_request_id" 
 }
 ```
 
-Response:
+**Immediate Response:**
 ```json
 {
-  "workflow_id": "generated_workflow_id"
+  "status": "processing",
+  "message": "Workflow execution started in the background.",
+  "content_request_id": "your_unique_content_request_id"
 }
 ```
 
-### Callback (to your frontend)
-When the workflow completes, the server will send a POST request to your configured callback URL:
-```json
-{
-  "status": "completed",
-  "image_url": "https://your-supabase-url/storage/v1/object/public/media/comfyui-output/request_id/image.png",
-  "content_request_id": "your_request_id"
-}
-```
+**Background Process:**
+
+1. The middleware executes the ComfyUI workflow.
+2. Monitors progress via WebSocket.
+3. On success:
+   - Uploads the generated image to Supabase Storage.
+   - Updates the corresponding row in the `content_requests` table:
+     - Sets `status` to `"ready"`.
+     - Updates the `assets` JSONB field with `"image_url"`.
+4. On failure:
+   - Updates the corresponding row in the `content_requests` table:
+     - Sets `status` to `"cancelled"`.
+
+**Frontend Integration:**
+
+The frontend should listen for real-time updates on the `content_requests` table using Supabase subscriptions. When the status changes to `ready` or `cancelled`, or when the `assets` field is updated, the frontend can react accordingly.
 
 ## Public Access with ngrok
 
 1. Sign up for a free ngrok account at https://ngrok.com
 2. Get your authtoken from the ngrok dashboard
 3. Add it to your `.env` file
-4. Start the server with ngrok (Option 2 in start.bat)
-5. Use the provided public URL to access your middleware
+4. Download `ngrok.exe` (or the appropriate binary for your OS) and place it in the project's root directory.
+5. Start the server with ngrok (Option 2 in start.bat or `python start_with_ngrok.py`)
+6. Use the provided public URL (shown in the console or at http://localhost:4040) to access your middleware.
 
 ## Contributing
 

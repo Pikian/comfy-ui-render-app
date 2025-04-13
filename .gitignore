@@ -39,6 +39,10 @@ ENV/
 # Output directory
 output/
 
+# ngrok
+ngrok/
+ngrok.exe
+
 # OS
 .DS_Store
 Thumbs.db 
